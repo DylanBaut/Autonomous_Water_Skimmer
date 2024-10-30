@@ -1,6 +1,7 @@
 #include <TinyGPSPlus.h>
 #include <Wire.h>
 #include <ICM_20948.h>
+#include <math.h> // Include math for the atan2 function
 
 // Create a TinyGPS++ object
 TinyGPSPlus gps;
@@ -8,7 +9,8 @@ TinyGPSPlus gps;
 // Create an ICM-20948 object
 ICM_20948_I2C imu; // No parameters needed
 
-// Define LED pins
+// Define sensor pins
+const int turbidityPin = A0; // A0 for analog reading of turbidity
 const int led1Pin = 4; // PD4
 const int led2Pin = 7; // PD7
 const int buttonPin = 2; // PD2
@@ -16,65 +18,59 @@ const int buttonPin = 2; // PD2
 // Timing variables for LEDs
 unsigned long previousMillisLed1 = 0;
 unsigned long previousMillisLed2 = 0;
-const long intervalLed1 = 500; // Blink every 500 ms for LED 1
-const long intervalLed2 = 250; // Blink every 250 ms for LED 2
+const long intervalLed1 = 500;
+const long intervalLed2 = 250;
 
-// Button state variables
+// Button and sensor state variables
 int buttonState = 0; 
 int lastButtonState = 0; 
-unsigned long debounceDelay = 50; // Debounce delay
+unsigned long debounceDelay = 50;
 unsigned long lastDebounceTime = 0; 
 
 void setup() {
-  // Start the serial communication
   Serial.begin(9600);
-  
-  // Initialize I2C for the IMU
   Wire.begin();
 
-  // Initialize the IMU
-  if (imu.begin() != 0) { // Check if begin() returns 0 for success
+  if (imu.begin() != 0) {
     Serial.println("IMU initialization failed!");
-    while (1); // Stop execution
+    while (1);
   }
   Serial.println("IMU initialized!");
 
-  // Initialize the LED pins as outputs
+  // Initialize pins
   pinMode(led1Pin, OUTPUT);
   pinMode(led2Pin, OUTPUT);
-  
-  // Initialize the button pin as input with pull-up resistor
   pinMode(buttonPin, INPUT_PULLUP);
 }
 
 void loop() {
-  // Read button state
+  // Button debouncing
   int reading = digitalRead(buttonPin);
-
-  // Check for button state change (debouncing)
-  if (reading != lastButtonState) {
-    lastDebounceTime = millis();
+  if (reading != lastButtonState) lastDebounceTime = millis();
+  if ((millis() - lastDebounceTime) > debounceDelay && reading != buttonState) {
+    buttonState = reading;
+    if (buttonState == LOW) Serial.println("Button pressed!");
   }
-
-  // Only change the button state if the debounce time has passed
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading != buttonState) {
-      buttonState = reading;
-
-      // If the button is pressed (active LOW)
-      if (buttonState == LOW) {
-        // Action on button press (optional)
-        Serial.println("Button pressed!");
-      }
-    }
-  }
-
   lastButtonState = reading;
 
-  // Read GPS data
+  // Turbidity sensor reading (continuous value from analog pin)
+  int turbidityValue = analogRead(turbidityPin);
+  float voltage = turbidityValue * (5.0 / 1023.0); // Convert to voltage (0-5V)
+  
+  // Print the analog value and voltage to get a continuous reading
+  Serial.print("Turbidity analog value: ");
+  Serial.print(turbidityValue);
+  Serial.print(" | Voltage: ");
+  Serial.print(voltage, 2); // Print voltage with 2 decimal places
+  
+  // Optional: Calculate a turbidity estimate based on voltage range (if calibration data is available)
+  // e.g., float turbidity = some_factor * voltage + some_offset;
+
+  Serial.println(" V");
+
+  // GPS data
   while (Serial.available() > 0) {
     gps.encode(Serial.read());
-
     if (gps.location.isUpdated()) {
       Serial.print("Latitude: ");
       Serial.print(gps.location.lat(), 6);
@@ -83,51 +79,27 @@ void loop() {
     }
   }
 
-  // Read IMU data
+  // IMU data
   if (imu.dataReady()) {
-    imu.getAGMT(); // Get accelerometer, gyroscope, magnetometer, and temperature data
+    imu.getAGMT();
+    float heading = atan2(imu.magY(), imu.magX()) * (180.0 / PI);
+    if (heading < 0) heading += 360;
 
-    // Print accelerometer data
-    Serial.print("Accel X: ");
-    Serial.print(imu.accX());
-    Serial.print(" Y: ");
-    Serial.print(imu.accY());
-    Serial.print(" Z: ");
-    Serial.println(imu.accZ());
-
-    // Print gyroscope data
-    Serial.print("Gyro X: ");
-    Serial.print(imu.gyrX());
-    Serial.print(" Y: ");
-    Serial.print(imu.gyrY());
-    Serial.print(" Z: ");
-    Serial.println(imu.gyrZ());
-
-    // Print magnetometer data
-    Serial.print("Mag X: ");
-    Serial.print(imu.magX());
-    Serial.print(" Y: ");
-    Serial.print(imu.magY());
-    Serial.print(" Z: ");
-    Serial.println(imu.magZ());
-
-    // Uncomment if temperature data is supported
-    // Serial.print("Temperature: ");
-    // Serial.println(imu.temperature());
+    Serial.print("Heading: ");
+    Serial.print(heading);
+    Serial.println(" degrees");
   }
 
-  // Handle LED 1 blinking
+  // LED blinking logic
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillisLed1 >= intervalLed1) {
     previousMillisLed1 = currentMillis;
-    digitalWrite(led1Pin, !digitalRead(led1Pin)); // Toggle LED 1
+    digitalWrite(led1Pin, !digitalRead(led1Pin));
   }
-
-  // Handle LED 2 blinking
   if (currentMillis - previousMillisLed2 >= intervalLed2) {
     previousMillisLed2 = currentMillis;
-    digitalWrite(led2Pin, !digitalRead(led2Pin)); // Toggle LED 2
+    digitalWrite(led2Pin, !digitalRead(led2Pin));
   }
 
-  delay(100); // Add a delay to avoid overwhelming the Serial Monitor
+  delay(100);
 }
