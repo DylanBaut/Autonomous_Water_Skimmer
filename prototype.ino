@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <ICM_20948.h>
 #include <math.h> // Include math for the atan2 function
+#include <Servo.h> // Include Servo library for ESC control
 
 // Create a TinyGPS++ object
 TinyGPSPlus gps;
@@ -14,6 +15,7 @@ const int turbidityPin = A0; // A0 for analog reading of turbidity
 const int led1Pin = 4; // PD4
 const int led2Pin = 7; // PD7
 const int buttonPin = 2; // PD2
+const int escPin = 6; // Pin for ESC control
 
 // Timing variables for LEDs
 unsigned long previousMillisLed1 = 0;
@@ -26,6 +28,9 @@ int buttonState = 0;
 int lastButtonState = 0; 
 unsigned long debounceDelay = 50;
 unsigned long lastDebounceTime = 0; 
+
+// Create a Servo object for ESC
+Servo esc;
 
 void setup() {
   Serial.begin(9600);
@@ -41,6 +46,14 @@ void setup() {
   pinMode(led1Pin, OUTPUT);
   pinMode(led2Pin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLUP);
+
+  // Attach the ESC to the servo object
+  esc.attach(escPin);
+  
+  // Calibrate the ESC by sending a minimum signal (1000 microseconds)
+  esc.writeMicroseconds(1000);
+  delay(2000); // Let ESC initialize
+  Serial.println("ESC calibrated and ready");
 }
 
 void loop() {
@@ -53,19 +66,13 @@ void loop() {
   }
   lastButtonState = reading;
 
-  // Turbidity sensor reading (continuous value from analog pin)
+  // Turbidity sensor reading
   int turbidityValue = analogRead(turbidityPin);
   float voltage = turbidityValue * (5.0 / 1023.0); // Convert to voltage (0-5V)
-  
-  // Print the analog value and voltage to get a continuous reading
   Serial.print("Turbidity analog value: ");
   Serial.print(turbidityValue);
   Serial.print(" | Voltage: ");
-  Serial.print(voltage, 2); // Print voltage with 2 decimal places
-  
-  // Optional: Calculate a turbidity estimate based on voltage range (if calibration data is available)
-  // e.g., float turbidity = some_factor * voltage + some_offset;
-
+  Serial.print(voltage, 2);
   Serial.println(" V");
 
   // GPS data
@@ -89,6 +96,10 @@ void loop() {
     Serial.print(heading);
     Serial.println(" degrees");
   }
+
+  // ESC control
+  int escSpeed = 1500; // Set speed (1000 = full reverse, 1500 = stop, 2000 = full forward)
+  esc.writeMicroseconds(escSpeed);
 
   // LED blinking logic
   unsigned long currentMillis = millis();
