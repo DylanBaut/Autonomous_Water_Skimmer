@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Boat Simulator</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #info, #state {
+      position: absolute;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+    #info {
+      top: 10px;
+      left: 10px;
+    }
+    #state {
+      top: 50px;
+      left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="lakeCanvas"></canvas>
+  <div id="info">Coordinates: (0, 0) | Direction: 0°</div>
+  <div id="state">State: PLACEHOLDER</div>
+
+  <script>
+    // Configurations
+    const lakeImageSrc = "pics/lake.jpg"; // Replace with your aerial image
+    const boatImageSrc = "pics/jellyfishbot.jpeg"; // Replace with your boat image
+    const boundaryPoints = [
+      [400, 350],
+      [800, 100],
+      [1200, 300],
+      [1000, 700],
+      [350, 650]
+    ]; // Polygon boundary points
+
+    const basePoint = [650, 700]; // Base coordinates
+
+    // Canvas Setup
+    const canvas = document.getElementById("lakeCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Boat properties
+    let boat = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      direction: 0, // Angle in degrees
+      speed: 2 // Pixels per move
+    };
+
+    const infoDiv = document.getElementById("info");
+    const stateDiv = document.getElementById("state");
+
+    // Load images
+    const lakeImage = new Image();
+    const boatImage = new Image();
+    lakeImage.src = lakeImageSrc;
+    boatImage.src = boatImageSrc;
+
+    lakeImage.onload = () => {
+      drawScene();
+    };
+
+    // Draw the scene
+    function drawScene() {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw lake background
+      ctx.drawImage(lakeImage, 0, 0, canvas.width, canvas.height);
+
+      // Draw grid
+      drawGrid();
+
+      // Draw boundary
+      drawBoundary();
+
+      // Draw base point
+      drawBase();
+
+      // Draw boat
+      drawBoat();
+
+      // Update info
+      updateInfo();
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 0.5;
+
+      // Vertical lines
+      for (let x = 0; x < canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let y = 0; y < canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawBoundary() {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      boundaryPoints.forEach(([x, y], index) => {
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    function drawBase() {
+      const [x, y] = basePoint;
+
+      // Draw red dot
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2); // Big red dot
+      ctx.fill();
+
+      // Draw text
+      ctx.fillStyle = "white";
+      ctx.font = "16px Arial";
+      ctx.fillText("Base", x + 15, y + 5); // Text offset slightly
+    }
+
+    function drawBoat() {
+      ctx.save();
+      ctx.translate(boat.x, boat.y);
+      ctx.rotate((boat.direction * Math.PI) / 180);
+      ctx.drawImage(boatImage, -25, -25, 50, 50); // Center the boat image
+      ctx.restore();
+    }
+
+    function updateInfo() {
+      infoDiv.innerText = `Coordinates: (${Math.round(boat.x)}, ${Math.round(boat.y)}) | Direction: ${Math.round(boat.direction)}°`;
+    }
+
+    // Control functions
+    function rotateBoat(angle) {
+      boat.direction = (boat.direction + angle) % 360;
+      drawScene();
+    }
+
+    function moveBoatForward(distance) {
+      const rad = (boat.direction * Math.PI) / 180;
+      boat.x += Math.cos(rad) * distance;
+      boat.y += Math.sin(rad) * distance;
+      drawScene();
+    }
+
+    // Key controls
+    window.addEventListener("keydown", (event) => {
+      switch (event.key) {
+        case "ArrowLeft":
+          rotateBoat(-10); // Rotate left
+          break;
+        case "ArrowRight":
+          rotateBoat(10); // Rotate right
+          break;
+        case "ArrowUp":
+          moveBoatForward(boat.speed); // Move forward
+          break;
+      }
+    });
+  </script>
+</body>
+</html>
