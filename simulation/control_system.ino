@@ -42,7 +42,7 @@ const unsigned long maxMissionTime = 10 * 60 * 1000; // 10 minutes in millisecon
 float currentLat = 0.0, currentLong = 0.0; // Robot's simulated position lat [-90, 90], long [-180, 180]
 float baseLat = 0.0, baseLong = 0.0;      // Base coordinates 
 float aimedBearing = 0.0;             //The intended angle between robots heading and actual North 
-float trueBearing = 0.0               //Robot's angle between its heading and actual North (calculated from IMU info)
+float trueBearing = 0.0;               //Robot's angle between its heading and actual North (calculated from IMU info)
 
 //Boundaries(changeable)
 const int numVertices = 5;
@@ -157,7 +157,12 @@ void straightLineNavigation() {
 void boundaryCorrection() {
     if (random(0, 2)) { // Randomly turn left or right
         //turn left by generated degrees off current direction
-        aimedBearing = ( (trueBearing - generateRandomAngle()) % 360 + 360) % 360   ; // Adjust heading angle positive modulo
+
+        aimedBearing = (trueBearing - generateRandomAngle());
+        aimedBearing = aimedBearing - 360.0 * static_cast<int>(aimedBearing / 360.0); // Manual modulo
+        if (aimedBearing < 0) aimedBearing += 360.0; // Ensure the value is non-negative
+
+
         setMotorSpeed(zeroThrottle, zeroThrottle + 30);
         while(trueBearing != aimedBearing){
             Serial.println("Turning Left");
@@ -165,7 +170,11 @@ void boundaryCorrection() {
          }
     } else {
        //turn right by generated degrees off current direction
-        aimedBearing = ( (trueBearing + generateRandomAngle()) % 360 + 360) % 360   ; // Adjust heading angle
+        
+        aimedBearing = (trueBearing - generateRandomAngle());
+        aimedBearing = aimedBearing - 360.0 * static_cast<int>(aimedBearing / 360.0); // Manual modulo
+        if (aimedBearing < 0) aimedBearing += 360.0; // Ensure the value is non-negative
+
         setMotorSpeed(zeroThrottle + 30, zeroThrottle);
         while(trueBearing != aimedBearing){
             Serial.println("Turning Right");
@@ -197,38 +206,38 @@ void setMotorSpeed(int leftSpeed, int rightSpeed) {
 }
 
 void updateGPS() {
-  currentLat = getLat()
-  currentLong = getLong()
+  currentLat = getLat();
+  currentLong = getLong();
   
 }
 
 bool atBase() {
     // Simulate base detection
-    return (currentlat == baseLat && currentLong == baseLong);
+    return (currentLat == baseLat && currentLong == baseLong);
 }
 
 void calculatePathToBase() {
     // Simulate path calculation to the base
-    headingAngle = atan2(baseLong - currentLong, baseLat - currentLat) * 180 / PI;
+    aimedBearing = atan2(baseLong - currentLong, baseLat - currentLat) * 180 / PI;
 }
 
 float generateRandomAngle() {
      return random(90, 180);
 }
-void setTruebearing(){
-    trueBearing = getIMUinfo()
+void setTrueBearing(){
+    trueBearing = getIMUinfo();
 }
 //need to be filled in/abstracted from sensors
 float getLat(){
-    return 0  
+    return 0;
 }
 
 float getLong(){
-    return 0 
+    return 0;
 }
 
 float getIMUinfo(){
-    return 0 
+    return 0;
 }
 
 
