@@ -38,11 +38,18 @@ unsigned long startTime = 0;
 unsigned long correctionCount = 0;
 const unsigned long maxMissionTime = 10 * 60 * 1000; // 10 minutes in milliseconds
 
+//location
 float currentLat = 0.0, currentLong = 0.0; // Robot's simulated position lat [-90, 90], long [-180, 180]
-float boundaryDistance = 20.0;       // Simulated distance to the boundary
 float baseLat = 0.0, baseLong = 0.0;      // Base coordinates 
 float aimedBearing = 0.0;             //The intended angle between robots heading and actual North 
 float trueBearing = 0.0               //Robot's angle between its heading and actual North (calculated from IMU info)
+
+//Boundaries(changeable)
+const int numVertices = 5;
+float polygonLat[numVertices] = {40.0, 40.01, 40.02, 40.01, 40.0}; // Example latitudes
+float polygonLong[numVertices] = {-105.0, -105.01, -105.0, -104.99, -105.0}; // Example longitudes
+const float threshold = 0.5;
+
 
 void setup() {
     Serial.begin(9600);
@@ -85,7 +92,7 @@ void loop() {
 
         case STRAIGHT_NAVIGATION:
             straightLineNavigation();
-            if (boundaryDistance < 12.0) {
+            if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
                 currentState = BOUNDARY_DETECTED;
                 Serial.println("Boundary Detected. Making a course correction.");
             } else if (millis() - startTime > maxMissionTime) {
@@ -106,7 +113,7 @@ void loop() {
 
         case RETURN_TO_BASE:
             returnToBase();
-            if (boundaryDistance < 12.0) {
+            if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
                 currentState = BOUNDARY_DETECTED;
             } else if (atBase()) {
                 stopMotors();
@@ -166,7 +173,7 @@ void boundaryCorrection() {
          }
     }
     updateGPS();
-    if (boundaryDistance < 12.0) {
+    if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
         correctionCount++;
         if (correctionCount >= 4) {
             currentState = STUCK_DETECTED;
@@ -190,8 +197,9 @@ void setMotorSpeed(int leftSpeed, int rightSpeed) {
 }
 
 void updateGPS() {
-    // Simulate GPS updates
-    boundaryDistance -= 0.1; // Placeholder logic
+  currentLat = getLat()
+  currentLong = getLong()
+  
 }
 
 bool atBase() {
@@ -208,8 +216,9 @@ float generateRandomAngle() {
      return random(90, 180);
 }
 void setTruebearing(){
-    trueBearing =0
+    trueBearing = getIMUinfo()
 }
+//need to be filled in/abstracted from sensors
 float getLat(){
     return 0  
 }
@@ -217,4 +226,82 @@ float getLat(){
 float getLong(){
     return 0 
 }
+
+float getIMUinfo(){
+    return 0 
+}
+
+
+
+/*
+*GPS detection near edges
+*/
+
+float pointToSegmentDistanceGeo(float lat, float lon, float lat1, float lon1, float lat2, float lon2) {
+    // Convert latitudes and longitudes to radians
+    lat *= M_PI / 180.0;
+    lon *= M_PI / 180.0;
+    lat1 *= M_PI / 180.0;
+    lon1 *= M_PI / 180.0;
+    lat2 *= M_PI / 180.0;
+    lon2 *= M_PI / 180.0;
+
+    // Approximation: Treat latitude/longitude as local Cartesian coordinates
+    float dx = (lon2 - lon1) * cos((lat1 + lat2) / 2.0); // Longitude difference scaled by average latitude
+    float dy = lat2 - lat1; // Latitude difference
+
+    // Degenerate segment case
+    if (dx == 0 && dy == 0) {
+        float dLat = lat - lat1;
+        float dLon = (lon - lon1) * cos(lat1);
+        return sqrt(dLat * dLat + dLon * dLon) * 111000.0; // Distance in meters
+    }
+
+    // Project point onto line segment (clamped to segment bounds)
+    float t = ((lat - lat1) * dy + (lon - lon1) * dx) / (dx * dx + dy * dy);
+    t = fmax(0, fmin(1, t)); // Clamp t to the range [0, 1]
+
+    // Closest point on segment
+    float closestLat = lat1 + t * dy;
+    float closestLon = lon1 + t * dx;
+
+    // Distance from point to closest point on segment
+    float dLat = lat - closestLat;
+    float dLon = (lon - closestLon) * cos(lat);
+    return sqrt(dLat * dLat + dLon * dLon) * 111000.0; // Distance in meters
+}
+
+
+// Function to check if a point is near any edge of the polygon
+bool isPointNearEdgeGeo(float lat, float lon, const float* vertLat, const float* vertLon, int numVertices, float thresholdMeters) {
+    for (int i = 0, j = numVertices - 1; i < numVertices; j = i++) {
+        float dist = pointToSegmentDistanceGeo(lat, lon, vertLat[i], vertLon[i], vertLat[j], vertLon[j]);
+        if (dist <= thresholdMeters) {
+            return true; // Point is near an edge
+        }
+    }
+    return false; // Point is not near any edge
+}
+
+
+/*
+*GPS detection outside of edges (outside of polygon) Should probably only be used every once in a while
+*/
+
+bool isPointInPolygon(float x, float y, const float* vertX, const float* vertY, int numVertices) {
+    bool inside = false;
+    for (int i = 0, j = numVertices - 1; i < numVertices; j = i++) {
+        // Get current and previous vertex
+        float xi = vertX[i], yi = vertY[i];
+        float xj = vertX[j], yj = vertY[j];
+
+        // Check if the point is inside
+        bool intersect = ((yi > y) != (yj > y)) &&
+                         (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+
 
