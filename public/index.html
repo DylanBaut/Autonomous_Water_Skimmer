@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Rotor Speed</title>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <h1>Live Rotor Speed</h1>
+    <p>Current Speed: <span id="speed">0</span></p>
+    <script>
+        const socket = io();
+        const speedElement = document.getElementById('speed');
+
+        socket.on('rotorSpeed', (data) => {
+            speedElement.textContent = data;
+        });
+    </script>
+</body>
+</html>

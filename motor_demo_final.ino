@@ -18,23 +18,9 @@ myservo.attach(5); // attaches the servo on pin  to the servo object
  
 void loop()
 {
-//  myservo.write(100);
-//  Serial.println("100");
-//
-//  delay(5000);
-//  myservo.write(120);
-//   Serial.println("120");
-//  delay(5000);
-//  myservo.write(130);
-//   Serial.println("130");
-//
-//  delay(5000);
-//   myservo.write(140);
-//   Serial.println("140");
-//  delay(5000);
   
  
-Serial.println("ZERO TO MAX");
+// Serial.println("ZERO TO MAX");
 for(pos = zeroThrottle; pos < maxThrottle; pos += 1)  // goes from zero to max throttle
   {                                  
     myservo.write(pos);               // tell the ESC to position in variable 'pos'
@@ -42,7 +28,7 @@ for(pos = zeroThrottle; pos < maxThrottle; pos += 1)  // goes from zero to max t
     Serial.println(pos);              // print "pos"
   }
 
-Serial.println("TRIGGER ON");
+// Serial.println("TRIGGER ON");
 myservo.write(89);               //APPARENTLY WRITING A VALUE ANYTHING LESS THAN ZERO THROTTLE FOR A SECOND OR TWO WILL TRIGGER THE ESC ON
                                   // THE ESC DOESNT EVEN NEED TO BE LESS THAN ZERO THROTTLE ON THE ESC'S STARTUP, JUST ANY POINT WILL TRIGGER IT ON
 delay(2000);
