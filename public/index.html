@@ -173,7 +173,7 @@
 
     // Add scaling factors for GPS conversion
     const gpsOrigin = { lat: 37.7749, lng: -122.4194 }; // Example origin GPS coordinates
-    const pixelToDegreeScale = { lat: 0.00001, lng: 0.00001 }; // Adjust scaling factors based on your map
+    const pixelToDegreeScale = { lat: 0.01, lng: 0.01 }; // Adjust scaling factors based on your map
 
     // Function to convert canvas coordinates to latitude/longitude
     function convertToGPS(x, y) {
@@ -203,7 +203,7 @@
         direction
       });
 
-      console.log(`Sent data: Lat=${gpsCoords.lat}, Lng=${gpsCoords.lng}, Direction=${direction}`);
+      // console.log(`Sent data: Lat=${gpsCoords.lat}, Lng=${gpsCoords.lng}, Direction=${direction}`);
     }
 
     // Update boat movement with added server data transmission
@@ -217,22 +217,17 @@
         boat.y += Math.sin(rad) * boat.speed * (left / 1000);
       } else if (right > left) {
         // Rotate counterclockwise
-        boat.direction -= 5 * (right - left) / 1000;
+        boat.direction -= 4 * (right - left) / 1000;
       } else if (left > right) {
         // Rotate clockwise
-        boat.direction += 5 * (left - right) / 1000;
+        boat.direction += 4 * (left - right) / 1000;
       }
 
       // Normalize direction and send updated data
       boat.direction = normalizeDirection(boat.direction);
-      sendBoatData();
       drawScene();
     }
 
-    // Example server-side listener for boat data
-    socket.on('boatData', (data) => {
-      console.log(`Received data: Latitude=${data.latitude}, Longitude=${data.longitude}, Direction=${data.direction}`);
-    });
 
 
     // Listen for Arduino data and update throttle values
@@ -254,6 +249,9 @@
       updateBoatMovement(); // Move the boat based on current throttle values
       requestAnimationFrame(gameLoop);
     }
+
+    setInterval(sendBoatData, 1100); // Adjust the interval in milliseconds
+
 
     gameLoop();
 

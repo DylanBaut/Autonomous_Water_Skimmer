@@ -18,9 +18,6 @@ const port = new SerialPort({
 
 const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
-// IMU and GPS data (mocked for now)
-let imuData = { x: 0, y: 0, z: 0 };
-let gpsData = { lat: 0.0, lon: 0.0 };
 
 // // Handle incoming data from Arduino
 // parser.on('data', (data) => {
@@ -54,27 +51,15 @@ parser.on('data', (data) => {
 io.on('connection', (socket) => {
     console.log('Client connected');
 
-    // Send initial GPS and IMU data
-    socket.emit('imuData', imuData);
-    socket.emit('gpsData', gpsData);
-
     // Listen for throttle commands from the client
-    socket.on('setThrottle', (value) => {
-        console.log(`Setting throttle to: ${value}`);
-        port.write(`${value}\n`);
+    socket.on('boatData', (value) => {
+        // console.log(`Sending data: Latitude=${value.latitude}, Longitude=${value.longitude}, Direction=${value.direction}`);
+        const dataString = `${value.latitude},${value.longitude},${value.direction}\n`;
+        // console.log(dataString);
+        port.write(dataString);
+        // port.write(`${value}\n`);
     });
 
-    // Mock updates for IMU and GPS data
-    setInterval(() => {
-        imuData = { x: Math.random() * 10, y: Math.random() * 10, z: Math.random() * 10 }; // Example data
-        gpsData = { lat: 40.0 + Math.random(), lon: -105.0 + Math.random() }; // Example data
-        socket.emit('imuData', imuData);
-        socket.emit('gpsData', gpsData);
-
-        // Send data to Arduino
-        const gpsImuString = `GPS:${gpsData.lat},${gpsData.lon};IMU:${imuData.x},${imuData.y},${imuData.z}\n`;
-        port.write(gpsImuString);
-    }, 1000); // Update every second
 });
 
 // Start the server
