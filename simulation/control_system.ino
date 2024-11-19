@@ -21,7 +21,7 @@ unsigned long debounceDelay = 50;
 unsigned long lastDebounceTime = 0; 
 unsigned long previousMillisLed = 0;
 const long intervalLed = 500;
-
+bool button_pressed =false;
 
 RobotState currentState = START;
 
@@ -32,6 +32,8 @@ Servo rightMotor;
 int zeroThrottle = 90;  // Neutral throttle
 int maxThrottle = 140; // Maximum forward speed
 int minThrottle = 60;  // Maximum reverse speed
+int currentLeftSpeed = 90;
+int currentRightSpeed = 90;
 
 // Timing variables
 unsigned long startTime = 0;
@@ -63,80 +65,110 @@ void setup() {
     // Initialize ESCs
     initializeESCs(leftMotor, rightMotor);
 
-    Serial.println("System Initialized. Waiting for Start Signal...");
+//    Serial.println("System Initialized. Waiting for Start Signal...");
 }
 
 void loop() {
 
-    
+    //recieved GPS and IMU data from server to abtsract these sensors since were not actually moving
+    if (Serial.available()) {
+        String data = Serial.readStringUntil('\n');
+        if (data.startsWith("GPS")) {
+//            Serial.println("Received GPS & IMU data:");
+//            Serial.println(data);
+
+//            Serial.println("LEFT:"+String(91)+"_RIGHT:"+ String(91));
+            Serial.println("LEFT:"+String(currentLeftSpeed)+"_RIGHT:"+ String(currentRightSpeed));
+
+
+        } 
+    }
+
+    // Button debouncing Polling
+    int reading = digitalRead(buttonPin);
+    if (reading != lastButtonState) lastDebounceTime = millis();
+    if ((millis() - lastDebounceTime) > debounceDelay && reading != buttonState) {
+      buttonState = reading;
+      if (buttonState == LOW){
+        startTime = millis();
+        button_pressed = true;
+      }
+     }
+     lastButtonState = reading;
+
     switch (currentState) {
         case START:
-            // Button debouncing Polling
-            int reading = digitalRead(buttonPin);
-            if (reading != lastButtonState) lastDebounceTime = millis();
-            if ((millis() - lastDebounceTime) > debounceDelay && reading != buttonState) {
-              buttonState = reading;
-              if (buttonState == LOW){ //ONLY TRANSITION IF BUTTON IS PRESSED
-                startTime = millis();
-                initializeESCs_wait(leftMotor, rightMotor);
-                currentState = STRAIGHT_NAVIGATION;
-                Serial.println("Mission Started. Transitioning to Straight-line Navigation.");
-                }
+            Serial.println("STATE:START");
+            //ONLY TRANSITION IF BUTTON IS PRESSED
+            if (button_pressed){
+              currentState = STRAIGHT_NAVIGATION;
+              initializeESCs_wait(leftMotor, rightMotor);
             }
-            lastButtonState = reading;
-            break;
-            
-            
-            
-            
-
+ 
+             break;
         case STRAIGHT_NAVIGATION:
+            Serial.println("STATE:STRAIGHT_NAVIGATION");
             straightLineNavigation();
-            if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
-                currentState = BOUNDARY_DETECTED;
-                Serial.println("Boundary Detected. Making a course correction.");
-            } else if (millis() - startTime > maxMissionTime) {
-                currentState = RETURN_TO_BASE;
-                Serial.println("Time limit reached. Returning to base.");
-            }
+//            if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
+//                currentState = BOUNDARY_DETECTED;
+////                Serial.println("Boundary Detected. Making a course correction.");
+//            } else if (millis() - startTime > maxMissionTime) {
+//                currentState = RETURN_TO_BASE;
+////                Serial.println("Time limit reached. Returning to base.");
+//            }
             break;
 
         case BOUNDARY_DETECTED:
+            Serial.println("STATE:BOUNDARY_DETECTED");
             boundaryCorrection();
             break;
 
         case STUCK_DETECTED:
+            Serial.println("STATE:STUCK_DETECTED");
             stopMotors();
             currentState = START;
-            Serial.println("Robot is stuck. Returning to start state.");
+//            Serial.println("Robot is stuck. Returning to start state.");
             break;
 
         case RETURN_TO_BASE:
+             Serial.println("STATE:RETURN_TO_BASE");
             returnToBase();
             if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
                 currentState = BOUNDARY_DETECTED;
             } else if (atBase()) {
                 stopMotors();
                 currentState = START;
-                Serial.println("Robot returned to base. Mission completed.");
+//                Serial.println("Robot returned to base. Mission completed.");
             }
             break;
     }
+    button_pressed =false;
+    
 }
 
 void initializeESCs(Servo &motor, Servo &motor2) {
     motor.write(89); // Initialize ESC
+    Serial.println("LEFT:"+String(89)+"_RIGHT:"+ String(89));
+    currentLeftSpeed = 89;
+    currentRightSpeed = 89;
     motor2.write(89); // Initialize ESC
     delay(10000);     // Wait 10 seconds for ESCs to be ready
-    Serial.println("ESC Initialized");
+//    Serial.println("ESC Initialized");
 }
 
 void initializeESCs_wait(Servo &motor, Servo &motor2) {
     motor.write(89); // Initialize ESC
+    digitalWrite(led1Pin, 1);
+    digitalWrite(led2Pin, 1);
+    Serial.println("LEFT:"+String(89)+"_RIGHT:"+ String(89));
+    currentLeftSpeed = 89;
+    currentRightSpeed = 89;
     motor2.write(89); // Initialize ESC
-    delay(30000);     // Wait 30 seconds for ESCs to be ready
-    flash_LEDs();
-    Serial.println("Wait completed, should be in the water now.");
+    delay(10000);     // Wait 30 seconds for ESCs to be ready
+    digitalWrite(led1Pin, 0);
+    digitalWrite(led2Pin, 0);
+//    flash_LEDs();
+//    Serial.println("Wait completed, should be in the water now.");
 }
 
 void flash_LEDs(){
@@ -165,7 +197,7 @@ void boundaryCorrection() {
 
         setMotorSpeed(zeroThrottle, zeroThrottle + 30);
         while(trueBearing != aimedBearing){
-            Serial.println("Turning Left");
+//            Serial.println("Turning Left");
             setTrueBearing();
          }
     } else {
@@ -177,7 +209,7 @@ void boundaryCorrection() {
 
         setMotorSpeed(zeroThrottle + 30, zeroThrottle);
         while(trueBearing != aimedBearing){
-            Serial.println("Turning Right");
+//            Serial.println("Turning Right");
             setTrueBearing();
          }
     }
@@ -198,11 +230,17 @@ void returnToBase() {
 
 void stopMotors() {
     setMotorSpeed(zeroThrottle, zeroThrottle); // Neutral throttle
+     Serial.println("LEFT:"+String(zeroThrottle)+"_RIGHT:"+ String(zeroThrottle));
+    currentLeftSpeed = zeroThrottle;
+    currentRightSpeed = zeroThrottle;
 }
 
 void setMotorSpeed(int leftSpeed, int rightSpeed) {
     leftMotor.write(leftSpeed);
+    Serial.println("LEFT:"+String(leftSpeed)+"_RIGHT:"+ String(rightSpeed));
     rightMotor.write(rightSpeed);
+    currentLeftSpeed = leftSpeed;
+    currentRightSpeed = rightSpeed;
 }
 
 void updateGPS() {
@@ -311,6 +349,3 @@ bool isPointInPolygon(float x, float y, const float* vertX, const float* vertY, 
     }
     return inside;
 }
-
-
-

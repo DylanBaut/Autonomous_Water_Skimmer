@@ -1,21 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Rotor Speed</title>
-    <script src="/socket.io/socket.io.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Boat Simulator</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #info, #state {
+      position: absolute;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+    #info {
+      top: 10px;
+      left: 10px;
+    }
+    #state {
+      top: 50px;
+      left: 10px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Live Rotor Speed</h1>
-    <p>Current Speed: <span id="speed">0</span></p>
-    <script>
-        const socket = io();
-        const speedElement = document.getElementById('speed');
+  <canvas id="lakeCanvas"></canvas>
+  <div id="info">Coordinates: (0, 0) | Direction: 0°</div>
+  <div id="state">State: PLACEHOLDER</div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // Configurations
+    const lakeImageSrc = "pics/lake.jpg"; // Replace with your aerial image
+    const boatImageSrc = "pics/jellyfishbot.jpeg"; // Replace with your boat image
+    const boundaryPoints = [
+      [400, 350],
+      [800, 100],
+      [1200, 300],
+      [1000, 700],
+      [350, 650]
+    ]; // Polygon boundary points
 
-        socket.on('rotorSpeed', (data) => {
-            speedElement.textContent = data;
-        });
-    </script>
+    const basePoint = [650, 700]; // Base coordinates
+
+    // Canvas Setup
+    const canvas = document.getElementById("lakeCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const socket = io();
+
+    // Boat properties
+    let boat = {
+      x: 650,
+      y: 650,
+      direction: -90, // Angle in degrees
+      speed: 5, // Pixels per move, controlled by throttle values
+      throttle: { left: 0, right: 0 }, // Throttle values from Arduino
+    };
+
+    const infoDiv = document.getElementById("info");
+    const stateDiv = document.getElementById("state");
+
+    // Load images
+    const lakeImage = new Image();
+    const boatImage = new Image();
+    lakeImage.src = lakeImageSrc;
+    boatImage.src = boatImageSrc;
+
+    lakeImage.onload = () => {
+      drawScene();
+    };
+
+    // Draw the scene
+    function drawScene() {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw lake background
+      ctx.drawImage(lakeImage, 0, 0, canvas.width, canvas.height);
+
+      // Draw grid
+      drawGrid();
+
+      // Draw boundary
+      drawBoundary();
+
+      // Draw base point
+      drawBase();
+
+      // Draw boat
+      drawBoat();
+
+      // Update info
+      updateInfo();
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 0.5;
+
+      // Vertical lines
+      for (let x = 0; x < canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let y = 0; y < canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawBoundary() {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      boundaryPoints.forEach(([x, y], index) => {
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    function drawBase() {
+      const [x, y] = basePoint;
+
+      // Draw red dot
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2); // Big red dot
+      ctx.fill();
+
+      // Draw text
+      ctx.fillStyle = "white";
+      ctx.font = "16px Arial";
+      ctx.fillText("Base", x + 15, y + 5); // Text offset slightly
+    }
+
+    function drawBoat() {
+      ctx.save();
+      ctx.translate(boat.x, boat.y);
+      ctx.rotate((boat.direction * Math.PI) / 180);
+      ctx.drawImage(boatImage, -25, -25, 50, 50); // Center the boat image
+      ctx.restore();
+    }
+
+    function updateInfo() {
+      infoDiv.innerText = `Coordinates: (${Math.round(boat.x)}, ${Math.round(boat.y)}) | Direction: ${Math.round(boat.direction)}°`;
+    }
+
+    // Add scaling factors for GPS conversion
+    const gpsOrigin = { lat: 37.7749, lng: -122.4194 }; // Example origin GPS coordinates
+    const pixelToDegreeScale = { lat: 0.00001, lng: 0.00001 }; // Adjust scaling factors based on your map
+
+    // Function to convert canvas coordinates to latitude/longitude
+    function convertToGPS(x, y) {
+      const deltaX = x - basePoint[0];
+      const deltaY = y - basePoint[1];
+
+      const lat = gpsOrigin.lat - deltaY * pixelToDegreeScale.lat;
+      const lng = gpsOrigin.lng + deltaX * pixelToDegreeScale.lng;
+
+      return { lat, lng };
+    }
+
+    // Normalize orientation angle to 0-360 degrees
+    function normalizeDirection(angle) {
+      return (angle + 360) % 360;
+    }
+
+    // Emit GPS and orientation data to the server
+    function sendBoatData() {
+      const gpsCoords = convertToGPS(boat.x, boat.y);
+      const direction = normalizeDirection(boat.direction);
+
+      // Send data via socket.io
+      socket.emit('boatData', {
+        latitude: gpsCoords.lat,
+        longitude: gpsCoords.lng,
+        direction
+      });
+
+      console.log(`Sent data: Lat=${gpsCoords.lat}, Lng=${gpsCoords.lng}, Direction=${direction}`);
+    }
+
+    // Update boat movement with added server data transmission
+    function updateBoatMovement() {
+      const { left, right } = boat.throttle;
+
+      if (left === right && right > 89) {
+        // Move forward
+        const rad = (boat.direction * Math.PI) / 180;
+        boat.x += Math.cos(rad) * boat.speed * (left / 1000);
+        boat.y += Math.sin(rad) * boat.speed * (left / 1000);
+      } else if (right > left) {
+        // Rotate counterclockwise
+        boat.direction -= 5 * (right - left) / 1000;
+      } else if (left > right) {
+        // Rotate clockwise
+        boat.direction += 5 * (left - right) / 1000;
+      }
+
+      // Normalize direction and send updated data
+      boat.direction = normalizeDirection(boat.direction);
+      sendBoatData();
+      drawScene();
+    }
+
+    // Example server-side listener for boat data
+    socket.on('boatData', (data) => {
+      console.log(`Received data: Latitude=${data.latitude}, Longitude=${data.longitude}, Direction=${data.direction}`);
+    });
+
+
+    // Listen for Arduino data and update throttle values
+    socket.on('throttleData', ({ left, right }) => {
+      console.log(`Throttle data received: LEFT=${left}, RIGHT=${right}`);
+      // Update global throttle values
+      boat.throttle.left = left;
+      boat.throttle.right = right;
+    });
+
+    socket.on('stateData', (state) => {
+      console.log(`State data received: ${state}`);
+      const stateDiv = document.getElementById("state");
+      stateDiv.innerText = `State: ${state.split(':')[1]}`; // Extract and display the VALUE part
+    });
+
+    // Update the boat's movement every frame
+    function gameLoop() {
+      updateBoatMovement(); // Move the boat based on current throttle values
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+
+    
+  </script>
 </body>
 </html>
