@@ -51,7 +51,10 @@ const int numVertices = 5;
 float polygonLat[numVertices] = {41.2749, 43.7749, 41.7749, 37.7749, 38.2749};
 float polygonLong[numVertices] = {-124.9194, -120.9194, -116.9194, -118.9194, -125.4194};
 const float threshold = 30;
+
+//global variables used for boundary/stuck detection
 float waitPeriod = 0;
+float boundaryShifts =0; //number of boundary shifts occured in a row
 
 void setup() {
     Serial.begin(9600);
@@ -103,8 +106,17 @@ void loop() {
             straightLineNavigation();
             if (waitPeriod >50){
               if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
-                currentState = BOUNDARY_DETECTED;
-                Serial.println("Boundary Detected. Making a course correction.");
+                if(waitPeriod == 51){//wait period just ended
+                  boundaryShifts +=1;
+                }else{
+                  boundaryShifts =0;
+                }
+                if(boundaryShifts >=4 ){
+                  currentState = STUCK_DETECTED;
+                }else{
+                  currentState = BOUNDARY_DETECTED;
+                  Serial.println("Boundary Detected. Making a course correction.");
+                }
               } 
             }
             
