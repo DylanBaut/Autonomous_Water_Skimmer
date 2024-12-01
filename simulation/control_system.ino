@@ -48,10 +48,10 @@ float trueBearing = 0.0;               //Robot's angle between its heading and a
 
 //Boundaries(changeable)
 const int numVertices = 5;
-float polygonLat[numVertices] = {40.0, 40.01, 40.02, 40.01, 40.0}; // Example latitudes
-float polygonLong[numVertices] = {-105.0, -105.01, -105.0, -104.99, -105.0}; // Example longitudes
-const float threshold = 0.5;
-
+float polygonLat[numVertices] = {41.2749, 43.7749, 41.7749, 37.7749, 38.2749};
+float polygonLong[numVertices] = {-124.9194, -120.9194, -116.9194, -118.9194, -125.4194};
+const float threshold = 30;
+float waitPeriod = 0;
 
 void setup() {
     Serial.begin(9600);
@@ -71,18 +71,7 @@ void setup() {
 void loop() {
 
     //recieved GPS and IMU data from server to abtsract these sensors since were not actually moving
-    if (Serial.available()) {
-        String data = Serial.readStringUntil('\n');
-        if (data.startsWith("GPS")) {
-//            Serial.println("Received GPS & IMU data:");
-//            Serial.println(data);
-
-//            Serial.println("LEFT:"+String(91)+"_RIGHT:"+ String(91));
-            Serial.println("LEFT:"+String(currentLeftSpeed)+"_RIGHT:"+ String(currentRightSpeed));
-
-
-        } 
-    }
+   getAbstractedData();
 
     // Button debouncing Polling
     int reading = digitalRead(buttonPin);
@@ -95,13 +84,16 @@ void loop() {
       }
      }
      lastButtonState = reading;
-
+     
+    waitPeriod +=1;
+    
     switch (currentState) {
         case START:
             Serial.println("STATE:START");
             //ONLY TRANSITION IF BUTTON IS PRESSED
             if (button_pressed){
               currentState = STRAIGHT_NAVIGATION;
+              waitPeriod =0;
               initializeESCs_wait(leftMotor, rightMotor);
             }
  
@@ -109,10 +101,14 @@ void loop() {
         case STRAIGHT_NAVIGATION:
             Serial.println("STATE:STRAIGHT_NAVIGATION");
             straightLineNavigation();
-//            if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
-//                currentState = BOUNDARY_DETECTED;
-////                Serial.println("Boundary Detected. Making a course correction.");
-//            } else if (millis() - startTime > maxMissionTime) {
+            if (waitPeriod >50){
+              if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
+                currentState = BOUNDARY_DETECTED;
+                Serial.println("Boundary Detected. Making a course correction.");
+              } 
+            }
+            
+//            else if (millis() - startTime > maxMissionTime) {
 //                currentState = RETURN_TO_BASE;
 ////                Serial.println("Time limit reached. Returning to base.");
 //            }
@@ -194,11 +190,12 @@ void boundaryCorrection() {
         aimedBearing = aimedBearing - 360.0 * static_cast<int>(aimedBearing / 360.0); // Manual modulo
         if (aimedBearing < 0) aimedBearing += 360.0; // Ensure the value is non-negative
 
-
+        Serial.println("Turning Left");
         setMotorSpeed(zeroThrottle, zeroThrottle + 30);
-        while(trueBearing != aimedBearing){
-//            Serial.println("Turning Left");
+        while(abs(trueBearing - aimedBearing) > 10){
+            Serial.println("True"+String(trueBearing)+ " Aimed"+ String(aimedBearing));
             setTrueBearing();
+            getAbstractedData();
          }
     } else {
        //turn right by generated degrees off current direction
@@ -206,20 +203,24 @@ void boundaryCorrection() {
         aimedBearing = (trueBearing - generateRandomAngle());
         aimedBearing = aimedBearing - 360.0 * static_cast<int>(aimedBearing / 360.0); // Manual modulo
         if (aimedBearing < 0) aimedBearing += 360.0; // Ensure the value is non-negative
-
+        Serial.println("Turning Right");
         setMotorSpeed(zeroThrottle + 30, zeroThrottle);
-        while(trueBearing != aimedBearing){
-//            Serial.println("Turning Right");
+        while(abs(trueBearing - aimedBearing) > 10){
+            Serial.println("True"+String(trueBearing)+ " Aimed"+ String(aimedBearing));
             setTrueBearing();
+            getAbstractedData();
          }
     }
     updateGPS();
-    if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
-        correctionCount++;
-        if (correctionCount >= 4) {
-            currentState = STUCK_DETECTED;
-        }
-    }
+//    if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
+//        correctionCount++;
+//        if (correctionCount >= 4) {
+//            currentState = STUCK_DETECTED;
+//        }
+//    }
+    currentState = STRAIGHT_NAVIGATION;
+    waitPeriod = 0;
+
 }
 
 void returnToBase() {
@@ -244,8 +245,8 @@ void setMotorSpeed(int leftSpeed, int rightSpeed) {
 }
 
 void updateGPS() {
-  currentLat = getLat();
-  currentLong = getLong();
+//  currentLat = getLat();
+//  currentLong = getLong();
   
 }
 
@@ -263,7 +264,7 @@ float generateRandomAngle() {
      return random(90, 180);
 }
 void setTrueBearing(){
-    trueBearing = getIMUinfo();
+//    trueBearing = getIMUinfo();
 }
 //need to be filled in/abstracted from sensors
 float getLat(){
@@ -283,46 +284,98 @@ float getIMUinfo(){
 /*
 *GPS detection near edges
 */
+// Helper function to convert latitude and longitude back to pixel coordinates
+void convertToPixel(float lat, float lon, float& x, float& y) {
+    const float gpsOriginLat = 37.7749; // Origin latitude
+    const float gpsOriginLon = -122.4194; // Origin longitude
+    const float pixelToDegreeScaleLat = 0.01; // Scaling factor for latitude
+    const float pixelToDegreeScaleLon = 0.01; // Scaling factor for longitude
+    const float baseX = 650; // Pixel base point x
+    const float baseY = 700; // Pixel base point y
 
-float pointToSegmentDistanceGeo(float lat, float lon, float lat1, float lon1, float lat2, float lon2) {
-    // Convert latitudes and longitudes to radians
-    lat *= M_PI / 180.0;
-    lon *= M_PI / 180.0;
-    lat1 *= M_PI / 180.0;
-    lon1 *= M_PI / 180.0;
-    lat2 *= M_PI / 180.0;
-    lon2 *= M_PI / 180.0;
-
-    // Approximation: Treat latitude/longitude as local Cartesian coordinates
-    float dx = (lon2 - lon1) * cos((lat1 + lat2) / 2.0); // Longitude difference scaled by average latitude
-    float dy = lat2 - lat1; // Latitude difference
-
-    // Degenerate segment case
-    if (dx == 0 && dy == 0) {
-        float dLat = lat - lat1;
-        float dLon = (lon - lon1) * cos(lat1);
-        return sqrt(dLat * dLat + dLon * dLon) * 111000.0; // Distance in meters
-    }
-
-    // Project point onto line segment (clamped to segment bounds)
-    float t = ((lat - lat1) * dy + (lon - lon1) * dx) / (dx * dx + dy * dy);
-    t = fmax(0, fmin(1, t)); // Clamp t to the range [0, 1]
-
-    // Closest point on segment
-    float closestLat = lat1 + t * dy;
-    float closestLon = lon1 + t * dx;
-
-    // Distance from point to closest point on segment
-    float dLat = lat - closestLat;
-    float dLon = (lon - closestLon) * cos(lat);
-    return sqrt(dLat * dLat + dLon * dLon) * 111000.0; // Distance in meters
+    // Convert lat/lon to pixel coordinates
+    x = baseX + (lon - gpsOriginLon) / pixelToDegreeScaleLon;
+    y = baseY - (lat - gpsOriginLat) / pixelToDegreeScaleLat;
 }
 
 
+float pointToSegmentDistanceGeo(float lat, float lon, float lat1, float lon1, float lat2, float lon2) {
+    float x, y, x1, y1, x2, y2;
+
+    // Convert all lat/lon values to pixel coordinates
+    convertToPixel(lat, lon, x, y);
+    convertToPixel(lat1, lon1, x1, y1);
+    convertToPixel(lat2, lon2, x2, y2);
+
+    // Treat the problem in pixel space
+    float dx = x2 - x1; // x difference
+    float dy = y2 - y1; // y difference
+
+    // Degenerate segment case
+    if (dx == 0 && dy == 0) {
+        float dX = x - x1;
+        float dY = y - y1;
+        return sqrt(dX * dX + dY * dY); // Distance in pixels
+    }
+
+    // Project point onto line segment (clamped to segment bounds)
+    float t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
+    t = fmax(0, fmin(1, t)); // Clamp t to the range [0, 1]
+
+    // Closest point on segment
+    float closestX = x1 + t * dx;
+    float closestY = y1 + t * dy;
+
+    // Distance from point to closest point on segment
+    float dX = x - closestX;
+    float dY = y - closestY;
+    return sqrt(dX * dX + dY * dY); // Distance in pixels
+}
+
+
+
+
+//
+//float pointToSegmentDistanceGeo(float lat, float lon, float lat1, float lon1, float lat2, float lon2) {
+//    // Convert latitudes and longitudes to radians
+//    lat *= M_PI / 180.0;
+//    lon *= M_PI / 180.0;
+//    lat1 *= M_PI / 180.0;
+//    lon1 *= M_PI / 180.0;
+//    lat2 *= M_PI / 180.0;
+//    lon2 *= M_PI / 180.0;
+//
+//    // Approximation: Treat latitude/longitude as local Cartesian coordinates
+//    float dx = (lon2 - lon1) * cos((lat1 + lat2) / 2.0); // Longitude difference scaled by average latitude
+//    float dy = lat2 - lat1; // Latitude difference
+//
+//    // Degenerate segment case
+//    if (dx == 0 && dy == 0) {
+//        float dLat = lat - lat1;
+//        float dLon = (lon - lon1) * cos(lat1);
+//        return sqrt(dLat * dLat + dLon * dLon) * 111000.0; // Distance in meters
+//    }
+//
+//    // Project point onto line segment (clamped to segment bounds)
+//    float t = ((lat - lat1) * dy + (lon - lon1) * dx) / (dx * dx + dy * dy);
+//    t = fmax(0, fmin(1, t)); // Clamp t to the range [0, 1]
+//
+//    // Closest point on segment
+//    float closestLat = lat1 + t * dy;
+//    float closestLon = lon1 + t * dx;
+//
+//    // Distance from point to closest point on segment
+//    float dLat = lat - closestLat;
+//    float dLon = (lon - closestLon) * cos(lat);
+//    return sqrt(dLat * dLat + dLon * dLon) * 111000.0; // Distance in meters
+//}
+//
+
 // Function to check if a point is near any edge of the polygon
-bool isPointNearEdgeGeo(float lat, float lon, const float* vertLat, const float* vertLon, int numVertices, float thresholdMeters) {
+bool isPointNearEdgeGeo(float latitude, float lon, const float* vertLat, const float* vertLon, int numVertices, float thresholdMeters) {
     for (int i = 0, j = numVertices - 1; i < numVertices; j = i++) {
-        float dist = pointToSegmentDistanceGeo(lat, lon, vertLat[i], vertLon[i], vertLat[j], vertLon[j]);
+        float dist = pointToSegmentDistanceGeo(latitude, lon, vertLat[i], vertLon[i], vertLat[j], vertLon[j]);
+        Serial.println("DISTANCE" + String(dist));
         if (dist <= thresholdMeters) {
             return true; // Point is near an edge
         }
@@ -349,3 +402,23 @@ bool isPointInPolygon(float x, float y, const float* vertX, const float* vertY, 
     }
     return inside;
 }
+
+void getAbstractedData(){
+   if (Serial.available()) {
+        String data = Serial.readStringUntil('\n');
+        Serial.println("LEFT:"+String(currentLeftSpeed)+"_RIGHT:"+ String(currentRightSpeed));
+//        Serial.println("data recieved :" + String(data));
+
+        int firstComma = data.indexOf(',');
+        int secondComma = data.indexOf(',', firstComma + 1);
+    
+        // Extract latitude, longitude, and direction
+        currentLat = data.substring(0, firstComma).toFloat();
+        currentLong = data.substring(firstComma + 1, secondComma).toFloat();
+        trueBearing = data.substring(secondComma + 1).toInt();
+        Serial.println("data recieved :" + String(currentLat)+ " " +String(currentLong)+ " " +String(trueBearing));
+
+            
+    }
+  
+  }
