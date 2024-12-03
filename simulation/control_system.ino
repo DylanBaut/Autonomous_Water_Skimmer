@@ -43,7 +43,7 @@ const unsigned long maxMissionTime = 1 * 60 * 1000; // 10 minutes in millisecond
 
 //location
 float currentLat = 0.0, currentLong = 0.0; // Robot's simulated position lat [-90, 90], long [-180, 180]
-float baseLat = 600.0, baseLong = 700.0;      // Base coordinates 
+float baseLat = 37.7749, baseLong = -122.4194;      // Base coordinates in lat long,  in pixels: baseLat = 600.0, baseLong = 700.0;
 float aimedBearing = 0.0;             //The intended angle between robots heading and actual North 
 float trueBearing = 0.0;               //Robot's angle between its heading and actual North (calculated from IMU info)
 
@@ -92,7 +92,7 @@ void loop() {
      lastButtonState = reading;
      
     waitPeriod +=1;
-    if (millis() > 25000) {   // YOU NEED TO HAVE 60000 NOT maxMissionTime.... different vars?
+    if (millis() > 14000) {   
     if (return_flag == false){
       currentState = RETURN_TO_BASE;
       Serial.println("Time limit reached. Returning to base.");
@@ -152,11 +152,6 @@ void loop() {
             
             // if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
             //     currentState = BOUNDARY_DETECTED;
-            if (atBase()) {
-                stopMotors();
-                currentState = START;
-//                Serial.println("Robot returned to base. Mission completed.");
-            }
             break;
     }
     button_pressed =false;
@@ -245,13 +240,11 @@ void boundaryCorrection() {
 }
 
 void returnToBase() {
-    Serial.println("TEST");
-    stopMotors();
-    // calculatePathToBase();
     if (return_flag == false){
     getAbstractedData();
-    aimedBearing = atan2(baseLong - currentLong, baseLat - currentLat) * 180 / PI;
-    aimedBearing = aimedBearing - 360.0 * static_cast<int>(aimedBearing / 360.0); // Manual modulo
+    
+    aimedBearing = -calculateAngleToBase();
+    Serial.println("CURRENT: "+String(trueBearing)+"AIMED: "+String(aimedBearing));
       if (aimedBearing < 0) aimedBearing += 360.0; // Ensure the value is non-negative
 
       Serial.println("Turning Left");
@@ -267,11 +260,17 @@ void returnToBase() {
     setMotorSpeed(zeroThrottle + 20, zeroThrottle + 20); // Straight-line speed to base
     getAbstractedData();
     updateGPS();
+
+     if (atBase()) {
+         stopMotors();
+         currentState = START;
+         Serial.println("Robot returned to base. Mission completed.");
+      }
 }
 
 void stopMotors() {
     setMotorSpeed(zeroThrottle, zeroThrottle); // Neutral throttle
-     Serial.println("LEFT:"+String(zeroThrottle)+"_RIGHT:"+ String(zeroThrottle));
+    Serial.println("LEFT:"+String(0)+"_RIGHT:"+ String(0));
     currentLeftSpeed = zeroThrottle;
     currentRightSpeed = zeroThrottle;
 }
@@ -292,12 +291,11 @@ void updateGPS() {
 
 bool atBase() {
     // Simulate base detection
-    // Calculate the Euclidean distance between current location and base
-    double distance = sqrt(pow(currentLat - baseLat, 2) + pow(currentLong - baseLong, 2));
+     double distance = sqrt(pow(currentLat - baseLat, 2) + pow(currentLong - baseLong, 2));
     
     // Check if the distance is within the threshold
-    Serial.println("DISTANCE : "+ String(distance));
-    return distance <= 100;
+    Serial.println("DISTANCETOBASE:"+String(distance));
+    return distance <= 0.4;
 }
 
 // void calculatePathToBase() {
@@ -446,6 +444,31 @@ bool isPointInPolygon(float x, float y, const float* vertX, const float* vertY, 
         if (intersect) inside = !inside;
     }
     return inside;
+}
+
+float calculateAngleToBase() {
+    Serial.println("BASELATLONG"+String(baseLat) +" "+String(baseLong));
+    Serial.println("CURRLATLONG"+String(currentLat) +" "+String(currentLong));
+    // Scaling factors for latitude and longitude
+    const float pixelToDegreeScaleLat = 0.01;
+    const float pixelToDegreeScaleLon = 0.01;
+
+    // Calculate scaled differences
+    float deltaLat = (baseLat - currentLat) / pixelToDegreeScaleLat;
+    float deltaLon = (baseLong - currentLong) / pixelToDegreeScaleLon;
+
+    // Calculate angle using atan2 (returns angle in radians)
+    float angleRad = atan2(deltaLat, deltaLon);
+
+    // Convert to degrees (optional)
+    float angleDeg = angleRad * 180.0 / M_PI;
+
+    // Ensure angle is within 0-360 degrees
+    if (angleDeg < 0) {
+        angleDeg += 360.0;
+    }
+
+    return angleDeg;
 }
 
 void getAbstractedData(){
