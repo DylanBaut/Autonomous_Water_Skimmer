@@ -1,0 +1,60 @@
+// Pins for turbidity sensor and LEDs
+const int turbidityPin = A0; // Turbidity sensor goes to analog pin A0
+const int redLED = 4;       // Red LED for "bad" water (NTU >= 50)
+const int greenLED = 7;     // Green LED for "good" water (NTU < 50)
+
+void setup() {
+  // Start the serial monitor so we can see the data
+  Serial.begin(9600);
+  Serial.println("Turbidity Sensor with 5-Second Updates Initialized");
+
+  // Set the LED pins to be outputs
+  pinMode(redLED, OUTPUT);
+  pinMode(greenLED, OUTPUT);
+
+  // Make sure both LEDs are off at the start
+  digitalWrite(redLED, LOW);
+  digitalWrite(greenLED, LOW);
+}
+
+void loop() {
+  // Initialize variables for averaging
+  float voltageSum = 0;
+  int numSamples = 300;
+
+  // Collect 300 samples over 5 seconds (300 ms/sample)
+  for (int i = 0; i < numSamples; i++) {
+    int analogValue = analogRead(turbidityPin); // Get the sensor's analog reading (0-1023)
+    float voltage = analogValue * (5.0 / 1023.0); // Convert the analog value into a voltage
+    voltageSum += voltage; // Add to the sum of voltages
+    delay(16); // Delay ~16ms (5 seconds / 300 samples)
+  }
+
+  // Calculate the average voltage
+  float averageVoltage = (voltageSum / numSamples);
+
+  // Use the equation to turn the average voltage into NTU (turbidity level)
+  float ntu = ((4.0769 - averageVoltage) / 0.0012) + 88; // Adding 88 to fix offset
+
+  // Make sure NTU isn't negative
+  if (ntu < 0) {
+    ntu = 0; // Clamp NTU to zero if it somehow goes below
+  }
+
+  // Print out what the sensor is reading
+  Serial.print("Average Voltage: ");
+  Serial.print(averageVoltage, 3); // Show voltage with 3 decimal places
+  Serial.print(" V | NTU: ");
+  Serial.println(ntu);
+
+  // Decide which LED to turn on based on the NTU value
+  if (ntu >= 50) { // If NTU is 50 or higher (bad water)
+    digitalWrite(redLED, HIGH);  // Turn on the red LED
+    digitalWrite(greenLED, LOW); // Make sure green LED is off
+  } else { // If NTU is below 50 (good water)
+    digitalWrite(redLED, LOW);   // Turn off the red LED
+    digitalWrite(greenLED, HIGH); // Turn on the green LED
+  }
+
+  // No additional delay here. The loop's 5-second runtime is determined by sample collection
+}
