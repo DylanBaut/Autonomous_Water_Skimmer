@@ -22,6 +22,7 @@ unsigned long lastDebounceTime = 0;
 unsigned long previousMillisLed = 0;
 const long intervalLed = 500;
 bool button_pressed =false;
+bool return_flag = false;
 
 RobotState currentState = START;
 
@@ -38,11 +39,11 @@ int currentRightSpeed = 90;
 // Timing variables
 unsigned long startTime = 0;
 unsigned long correctionCount = 0;
-const unsigned long maxMissionTime = 10 * 60 * 1000; // 10 minutes in milliseconds
+const unsigned long maxMissionTime = 1 * 60 * 1000; // 10 minutes in milliseconds
 
 //location
 float currentLat = 0.0, currentLong = 0.0; // Robot's simulated position lat [-90, 90], long [-180, 180]
-float baseLat = 0.0, baseLong = 0.0;      // Base coordinates 
+float baseLat = 600.0, baseLong = 700.0;      // Base coordinates 
 float aimedBearing = 0.0;             //The intended angle between robots heading and actual North 
 float trueBearing = 0.0;               //Robot's angle between its heading and actual North (calculated from IMU info)
 
@@ -54,7 +55,7 @@ const float threshold = 30;
 
 //global variables used for boundary/stuck detection
 float waitPeriod = 0;
-float boundaryShifts =0; //number of boundary shifts occured in a row
+float boundaryShifts =0; //number of boundary shifts occurred in a row
 
 void setup() {
     Serial.begin(9600);
@@ -73,6 +74,8 @@ void setup() {
 
 void loop() {
 
+    Serial.println(millis());
+
     //recieved GPS and IMU data from server to abtsract these sensors since were not actually moving
    getAbstractedData();
 
@@ -89,6 +92,14 @@ void loop() {
      lastButtonState = reading;
      
     waitPeriod +=1;
+    if (millis() > 25000) {   // YOU NEED TO HAVE 60000 NOT maxMissionTime.... different vars?
+    if (return_flag == false){
+      currentState = RETURN_TO_BASE;
+      Serial.println("Time limit reached. Returning to base.");
+    }
+      //while(1);
+  }
+
     
     switch (currentState) {
         case START:
@@ -119,11 +130,6 @@ void loop() {
                 }
               } 
             }
-            
-//            else if (millis() - startTime > maxMissionTime) {
-//                currentState = RETURN_TO_BASE;
-////                Serial.println("Time limit reached. Returning to base.");
-//            }
             break;
 
         case BOUNDARY_DETECTED:
@@ -139,11 +145,14 @@ void loop() {
             break;
 
         case RETURN_TO_BASE:
-             Serial.println("STATE:RETURN_TO_BASE");
-            returnToBase();
-            if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
-                currentState = BOUNDARY_DETECTED;
-            } else if (atBase()) {
+          if (return_flag == false){
+            Serial.println("STATE:RETURN_TO_BASE");
+          }
+          returnToBase();
+            
+            // if (isPointNearEdgeGeo(currentLat, currentLong, polygonLat, polygonLong, numVertices, threshold)) {
+            //     currentState = BOUNDARY_DETECTED;
+            if (atBase()) {
                 stopMotors();
                 currentState = START;
 //                Serial.println("Robot returned to base. Mission completed.");
@@ -151,7 +160,7 @@ void loop() {
             break;
     }
     button_pressed =false;
-    
+  //Serial.println("Loop complete");  
 }
 
 void initializeESCs(Servo &motor, Servo &motor2) {
@@ -205,7 +214,7 @@ void boundaryCorrection() {
         Serial.println("Turning Left");
         setMotorSpeed(zeroThrottle, zeroThrottle + 30);
         while(abs(trueBearing - aimedBearing) > 10){
-            Serial.println("True"+String(trueBearing)+ " Aimed"+ String(aimedBearing));
+            //Serial.println("True"+String(trueBearing)+ " Aimed"+ String(aimedBearing));
             setTrueBearing();
             getAbstractedData();
          }
@@ -236,8 +245,27 @@ void boundaryCorrection() {
 }
 
 void returnToBase() {
-    calculatePathToBase();
+    Serial.println("TEST");
+    stopMotors();
+    // calculatePathToBase();
+    if (return_flag == false){
+    getAbstractedData();
+    aimedBearing = atan2(baseLong - currentLong, baseLat - currentLat) * 180 / PI;
+    aimedBearing = aimedBearing - 360.0 * static_cast<int>(aimedBearing / 360.0); // Manual modulo
+      if (aimedBearing < 0) aimedBearing += 360.0; // Ensure the value is non-negative
+
+      Serial.println("Turning Left");
+      setMotorSpeed(zeroThrottle, zeroThrottle + 30);
+      while(abs(trueBearing - aimedBearing) > 10){
+          //Serial.println("True"+String(trueBearing)+ " Aimed"+ String(aimedBearing));
+          setTrueBearing();
+          getAbstractedData();
+        }
+    }
+    return_flag = true;
+    Serial.println("Turning complete");
     setMotorSpeed(zeroThrottle + 20, zeroThrottle + 20); // Straight-line speed to base
+    getAbstractedData();
     updateGPS();
 }
 
@@ -264,13 +292,18 @@ void updateGPS() {
 
 bool atBase() {
     // Simulate base detection
-    return (currentLat == baseLat && currentLong == baseLong);
+    // Calculate the Euclidean distance between current location and base
+    double distance = sqrt(pow(currentLat - baseLat, 2) + pow(currentLong - baseLong, 2));
+    
+    // Check if the distance is within the threshold
+    Serial.println("DISTANCE : "+ String(distance));
+    return distance <= 100;
 }
 
-void calculatePathToBase() {
-    // Simulate path calculation to the base
-    aimedBearing = atan2(baseLong - currentLong, baseLat - currentLat) * 180 / PI;
-}
+// void calculatePathToBase() {
+//     // Simulate path calculation to the base
+//     aimedBearing = atan2(baseLong - currentLong, baseLat - currentLat) * 180 / PI;
+// }
 
 float generateRandomAngle() {
      return random(90, 180);
@@ -387,7 +420,7 @@ float pointToSegmentDistanceGeo(float lat, float lon, float lat1, float lon1, fl
 bool isPointNearEdgeGeo(float latitude, float lon, const float* vertLat, const float* vertLon, int numVertices, float thresholdMeters) {
     for (int i = 0, j = numVertices - 1; i < numVertices; j = i++) {
         float dist = pointToSegmentDistanceGeo(latitude, lon, vertLat[i], vertLon[i], vertLat[j], vertLon[j]);
-        Serial.println("DISTANCE" + String(dist));
+        //Serial.println("DISTANCE" + String(dist));
         if (dist <= thresholdMeters) {
             return true; // Point is near an edge
         }
