@@ -230,13 +230,9 @@
    #### Equations and Calibration:
    - To process the sensor’s raw output, I used the following equations:
  	- First, convert the sensor’s analog reading to voltage:
-   	\[
-   	V = \text{Analog Value} \times \left(\frac{5.0}{1024}\right)
-   	\]
+   	V = Analog Value * (5.0 * 1024)
  	- Use the Hakimi study’s equation to calculate NTU:
-   	\[
-   	\text{Turbidity (NTU)} = \frac{4.0769 - V}{0.0012}
-   	\]
+   	NTU = (4.0769 - V) / 0.0012
  	- **Why I Used the Hakimi Study**:
    	- Commercial NTU calibration solutions cost over $100, which would have blown our budget.
    	- The Hakimi study provided a validated equation specifically for the SEN0189 sensor. This equation was derived from testing water mixed with flour to simulate specific turbidity levels, creating an inexpensive way to map voltage to NTU.
@@ -400,15 +396,11 @@
 2. **Turbidity Sensor Code and Calibration**
    - I used the sample code from the DFRobot website to read the sensor's analog output and convert it to a voltage. Here’s how it works:
  	- The sensor outputs a raw analog signal, which our Arduino converts to a voltage using this formula:
-   	\[
-   	V = \text{Analog Value} \times \left(\frac{5.0}{1024.0}\right)
-   	\]
+   	V = Analog Value * (5.0 * 1024)
  	- The sample code prints the calculated voltage to the Serial Monitor every 500 ms, allowing me to monitor the sensor's output in real-time.
 
    - To convert the voltage to NTU, I referenced the calibration graph from the Hakimi and Jamil study. The graph provides a linear relationship between voltage and turbidity, represented by this equation:
- 	\[
- 	\text{Turbidity (NTU)} = \frac{4.0769 - V}{0.0012}
- 	\]
+ 	NTU = (4.0769 - V) / 0.0012
  	- This equation maps the voltage to an NTU value, where lower voltage corresponds to higher turbidity (cloudier water), and higher voltage corresponds to clearer water.
  	- The equation is based on experimental data from the study, which used controlled turbidity solutions to establish the relationship.
 
