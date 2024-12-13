@@ -545,9 +545,7 @@
 - Wrote the code for testing the turbidity.
 - Prepared 250 mL solutions for 0 NTU, 25 NTU, 50 NTU, and 100 NTU using distilled water and flour, following the formula from the Hakimi study:
   - Used the equation:
-	\[
-	TSS (\text{g/L}) = \frac{\text{NTU} + 58.985}{379.04}
-	\]
+	TSS (g/L) = (NTU + 58.985) / 379.04
 	- Converted the resulting TSS into grams of flour for 250 mL by scaling down appropriately.
 
 #### Final Measurements for Each Solution:
@@ -560,15 +558,10 @@
 
 ### Testing Procedure
 - Connected the turbidity sensor to the breadboard/Arduino and measured its output for each solution.
-  - Used the DFRobot-provided sample code to convert analog readings into voltage:
-	\[
-	V = \text{Analog Value} \times \left(\frac{5.0}{1024.0}\right)
-	\]
+  - Used the DFRobot-provided sample code to convert analog readings into voltage.
   - Averaged the voltage readings over a 5-minute period for each solution to reduce noise and account for fluctuations.
 - Applied the Hakimi voltage-to-NTU conversion equation:
-  \[
-  \text{NTU} = \frac{4.0769 - V}{0.0012}
-  \]
+  NTU = (4.0769 - V) / 0.0012
  -  During testing, I noticed the sensor's NTU value for the 0 NTU solution was reading as **-88 NTU**. To account for this, I adjusted the NTU equation by adding an offset of **+88**, ensuring the readings aligned with expected values for proper calibration.
  - Verified that the measured NTU values aligned with the expected results based on the prepared solutions.
  - Observed the correct LEDs turning on based on the NTU being <50, or >= 50.
