@@ -206,6 +206,11 @@
 3. **Next Steps**
    - On Friday, we’ll meet with the machine shop again once we have the weight and dimension specifics finalized. This will help us confirm if PVC is still the best choice and if it works with the rest of the design.
 
+![Boats](../../Pictures/boats.png)
+
+![Physical Design](../../Pictures/physical%20design.png)
+
+#### Boat designs
 
 ## Entry for October 3, 2024
 
@@ -263,6 +268,14 @@
 ![Sensor](../../Pictures/sensor.jpg)
 
 #### DFRobot Sensor
+
+![DFRobot Equation](../../Pictures/DFRobot%20Equation.png)
+
+#### DFRobot Voltage Equation
+
+![Voltage vs NTU](../../Pictures/V%20vs%20NTU.png)
+
+#### Voltage vs NTU Equation
 
 ## Entry for October 4, 2024
 
@@ -576,7 +589,13 @@
 ### Next Steps
 - Use the calibrated sensor to test that the full system works.
 
+![NTU to TSS](../../Pictures/NTU%20to%20TSS.png)
 
+#### Formula for Creating NTU Solutions
+
+![Data Calibration Example](../../Pictures/data%20calibration%20example.jpg)
+
+#### Data Calibration Example
 
 ## Entry for November 30, 2024
 
