@@ -206,11 +206,10 @@
 3. **Next Steps**
    - On Friday, we’ll meet with the machine shop again once we have the weight and dimension specifics finalized. This will help us confirm if PVC is still the best choice and if it works with the rest of the design.
 
+### Boat designs
 ![Boats](../../Pictures/boats.png)
 
 ![Physical Design](../../Pictures/physical%20design.png)
-
-#### Boat designs
 
 ## Entry for October 3, 2024
 
@@ -265,17 +264,14 @@
 3. **Role Clarification**
    - I’ve taken ownership of the turbidity monitoring subsystem, handling everything from sensor setup and calibration to LED integration and testing. This will be my main contribution to the project.
 
+#### DFRobot Sensor
 ![Sensor](../../Pictures/sensor.jpg)
 
-#### DFRobot Sensor
-
+### DFRobot Voltage Equation
 ![DFRobot Equation](../../Pictures/DFRobot%20Equation.png)
 
-#### DFRobot Voltage Equation
-
+### Voltage vs NTU Equation
 ![Voltage vs NTU](../../Pictures/V%20vs%20NTU.png)
-
-#### Voltage vs NTU Equation
 
 ## Entry for October 4, 2024
 
@@ -531,6 +527,22 @@
 - Add the startup delay to the code and retest the ESC and motor to make sure it works every time.
 
 
+## Entry for November 18, 2024
+
+### Objective
+- Provide design shop with turbidity sensor dimensions.
+
+### What Was Done
+- Emailed Gregg Bennett the designs for the sensor.
+
+### Next Steps
+- Deliver the sensor to him soon for in person verification.
+
+### Probe Dimensions
+![Probe Dimensions](../../Pictures/Probe_Dimension.png)
+
+### Thumbnail Adapter Dimensions
+![Thumbnail Adapter Dimensions](../../Pictures/thumbnail_Adapter_Dimension.png)
 
 ## Entry for November 19, 2024
 
@@ -589,13 +601,12 @@
 ### Next Steps
 - Use the calibrated sensor to test that the full system works.
 
+### Formula for Creating NTU Solutions
 ![NTU to TSS](../../Pictures/NTU%20to%20TSS.png)
 
-#### Formula for Creating NTU Solutions
-
+### Data Calibration Example
 ![Data Calibration Example](../../Pictures/data%20calibration%20example.jpg)
 
-#### Data Calibration Example
 
 ## Entry for November 30, 2024
 
