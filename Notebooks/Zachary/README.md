@@ -262,6 +262,8 @@
 
 ![Sensor](../../Pictures/sensor.jpg)
 
+#### DFRobot Sensor
+
 ## Entry for October 4, 2024
 
 ### Objective
