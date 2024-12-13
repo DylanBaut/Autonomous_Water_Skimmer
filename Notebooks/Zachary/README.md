@@ -260,7 +260,7 @@
 3. **Role Clarification**
    - I’ve taken ownership of the turbidity monitoring subsystem, handling everything from sensor setup and calibration to LED integration and testing. This will be my main contribution to the project.
 
-![Sensor](Notebooks/Zachary/sensor.jpg)
+![Sensor](Pictures/sensor.jpg)
 
 ## Entry for October 4, 2024
 
